@@ -25,6 +25,8 @@ lastImeState := 99
 idlePollingSkipMax := 15 ; 250ms/16ms = 15
 idlePollingCurrentSkip := 0
 
+isEngDisplayed := False
+
 toolTipFlashIdx := 0
 
 TooltipColorWhiteOnBlack()
@@ -64,6 +66,9 @@ InitTrayMenu(){
 	Menu, Tray, Add, Black, ToolTipColorWhiteOnBlack
 	Menu, Tray, Add, Red, ToolTipColorWhiteOnRed
 	Menu, Tray, Add, Flash, StartToolTipFlash
+	Menu, Tray, Add
+	Menu, Tray, Add, toggle ENG, ToogleEngTooltip
+	Menu, Tray, Add
 	Menu, Tray, Add, Exit, Exit
 }
 
@@ -80,6 +85,11 @@ ToolTipColorWhiteOnBlack(){
 ToolTipColorWhiteOnRed(){
 	StopToolTipFlash()
 	ToolTipColor("Red","White")
+}
+
+ToogleEngTooltip(){
+	global isEngTooltipDisplayed
+	isEngTooltipDisplayed := !isEngTooltipDisplayed
 }
 
 StartToolTipFlash(){
@@ -117,7 +127,13 @@ Exit(){
 WatchCursor:
 MouseGetPos, x, y, winId, controlId
 
-; slows down IME state check frequency when the cursor stays still
+; hide tooltip when cursor is near the upper edge of the underlaying window
+if(y < 50){
+	ToolTip
+	return
+}
+
+; slows down IME state check frequency when the cursor is idle
 if (x = lastX and y = lastY and toolTipFlashIdx = 0){
     idlePollingCurrentSkip += 1
     if(idlePollingCurrentSkip < idlePollingSkipMax) {
@@ -126,13 +142,27 @@ if (x = lastX and y = lastY and toolTipFlashIdx = 0){
     ; OutputDebug, idle %idlePollingCurrentSkip%
 }
 
+
+
 ; reset idle polling skip
 idlePollingCurrentSkip := 0
 
 imeState := ReadImeState(winId)
+
+; should show ENG label?
+if(imeState = 0 and isEngTooltipDisplayed){
+	lastX := x
+	lastY := y
+	lastImeState := imeState
+	
+	ToolTip, ENG, x+20, y-30
+	return
+}
+
+; is IME=ENG?
 if(imeState = 0) {
     if(imeState != lastImeState){
-        ToolTip ; removing tooltip
+	   ToolTip ; removing tooltip
     }
     lastImeState := imeState
     return
@@ -145,7 +175,6 @@ if(x = lastX and y = lastY and imeState = lastImeState and toolTipFlashIdx = 0){
 lastX := x
 lastY := y
 lastImeState := imeState
-
 
 ToolTip, KOR, x+20, y-30
 return
