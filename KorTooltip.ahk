@@ -16,8 +16,7 @@
 ; + shift
 
 ; ----------------------------------------------------------------
-; Initializer
-
+; Initializer >>>
 isActive := True
 lastX := 0
 lastY := 0
@@ -26,24 +25,92 @@ lastImeState := 99
 idlePollingSkipMax := 15 ; 250ms/16ms = 15
 idlePollingCurrentSkip := 0
 
-ToolTipColor("Black","White")
+toolTipFlashIdx := 0
 
-SetTimer, WatchCursor, 16 ; 1000ms/60fps =~ 16.7ms
+TooltipColorWhiteOnBlack()
+InitTrayMenu()
+StartWatch()
 return
+; <<< Initializer
+; ----------------------------------------------------------------
+
 
 ; ----------------------------------------------------------------
 ; toggle tooltip state
 #ScrollLock:: ; win + scrolllock
 If (isActive = False) {
+	StartWatch()
+} Else {
+	StopWatch()
+}
+Return
+
+StartWatch(){
+	global isActive
 	isActive := True
 	SetTimer, WatchCursor, 16 ; 1000ms/60fps =~ 16.7ms
-} Else {
+}
+
+StopWatch(){
+	global isActive
 	isActive := False
 	SetTimer, WatchCursor, Off
 	ToolTip ; removing tooltip
 }
-Return
 
+InitTrayMenu(){
+	Menu, Tray, NoStandard ; remove default tray menu entries
+	Menu, Tray, Add, White, ToolTipColorBlackOnWhite
+	Menu, Tray, Add, Black, ToolTipColorWhiteOnBlack
+	Menu, Tray, Add, Red, ToolTipColorWhiteOnRed
+	Menu, Tray, Add, Flash, StartToolTipFlash
+	Menu, Tray, Add, Exit, Exit
+}
+
+ToolTipColorBlackOnWhite(){
+	StopToolTipFlash()
+	ToolTipColor("White","Black") ; background / foreground
+}
+
+ToolTipColorWhiteOnBlack(){
+	StopToolTipFlash()
+	ToolTipColor("Black","White")
+}
+
+ToolTipColorWhiteOnRed(){
+	StopToolTipFlash()
+	ToolTipColor("Red","White")
+}
+
+StartToolTipFlash(){
+	toolTipFlashIdx = 1
+	SetTimer, FlashToolTip, 500
+}
+
+StopToolTipFlash(){
+	toolTipFlashIdx = 0
+	SetTimer, FlashToolTip, off
+}
+
+FlashToolTip(){
+	global toolTipFlashIdx
+	if(toolTipFlashIdx = 1){
+		ToolTipColor("Red","White")
+	}
+	if(toolTipFlashIdx = 2){
+		ToolTipColor("Black","White")
+	}
+	
+	; capping
+	toolTipFlashIdx++
+	if(toolTipFlashIdx > 2){
+		toolTipFlashIdx := 1
+	}
+}
+
+Exit(){
+	ExitApp
+}
 
 ; ----------------------------------------------------------------
 ; main poller
@@ -51,7 +118,7 @@ WatchCursor:
 MouseGetPos, x, y, winId, controlId
 
 ; slows down IME state check frequency when the cursor stays still
-if (x = lastX and y = lastY){
+if (x = lastX and y = lastY and toolTipFlashIdx = 0){
     idlePollingCurrentSkip += 1
     if(idlePollingCurrentSkip < idlePollingSkipMax) {
         return
@@ -71,13 +138,13 @@ if(imeState = 0) {
     return
 }
 
-if(x = lastX and y = lastY and imeState = lastImeState){
+if(x = lastX and y = lastY and imeState = lastImeState and toolTipFlashIdx = 0){
     return
 }
 
 lastX := x
 lastY := y
-lastImeState := imeSate
+lastImeState := imeState
 
 
 ToolTip, KOR, x+20, y-30
