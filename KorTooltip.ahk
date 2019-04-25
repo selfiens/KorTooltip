@@ -17,19 +17,46 @@
 
 ; ----------------------------------------------------------------
 ; Initializer >>>
+
 isActive := True
 lastX := 0
 lastY := 0
 lastImeState := 99
 
-idlePollingSkipMax := 15 ; 250ms/16ms = 15
 idlePollingCurrentSkip := 0
-
-isEngDisplayed := False
-
 toolTipFlashIdx := 0
 
-TooltipColorWhiteOnBlack()
+; preferences
+IniRead, colorScheme, KorTooltip.ini, preferences, colorScheme, whiteOnBlack
+IniRead, isEngTooltipDisplayed, KorTooltip.ini, preferences, isEngTooltipDisplayed, 0
+
+; labels
+IniRead, korTooltipLabel, KorTooltip.ini, labels, korTooltipLabel, KOR
+IniRead, engUcaseTooltipLabel, KorTooltip.ini, labels, engUcaseTooltipLabel, ENG
+
+; core
+IniRead, idlePollingSkipMax, KorTooltip.ini, internal, idlePollingSkipMax, 15 ; 250ms/16ms = 15
+IniRead, toolTipFlashIntervalMs, KorTooltip.ini, internal, toolTipFlashIntervalMs, 500
+IniRead, toolTipOffsetX, KorTooltip.ini, internal, toolTipOffsetX, 20
+IniRead, toolTipOffsetY, KorTooltip.ini, internal, toolTipOffsetY, -30
+
+
+if(colorScheme = "whiteOnBlack"){
+    TooltipColorWhiteOnBlack()
+}
+else if(colorScheme = "blackOnWhite"){
+    TooltipColorBlackOnWhite()
+}
+else if(colorScheme = "whiteOnRed"){
+    TooltipColorWhiteOnRed()
+}
+else if(colorScheme = "flash"){
+    StartToolTipFlash()
+}
+else { ; default
+    TooltipColorWhiteOnBlack()
+}
+
 InitTrayMenu()
 StartWatch()
 return
@@ -72,29 +99,55 @@ InitTrayMenu(){
 	Menu, Tray, Add, Exit, Exit
 }
 
+SaveSettings(){
+    global
+    
+    ; preferences
+    IniWrite, %isEngTooltipDisplayed%, KorTooltip.ini, preferences, isEngTooltipDisplayed
+    IniWrite, %colorScheme%, KorTooltip.ini, preferences, colorScheme
+
+    ; labels
+    IniWrite, %korTooltipLabel%, KorTooltip.ini, labels, korTooltipLabel
+    IniWrite, %engUcaseTooltipLabel%, KorTooltip.ini, labels, engUcaseTooltipLabel
+
+    ; core
+    IniWrite, %idlePollingSkipMax%, KorTooltip.ini, internal, idlePollingSkipMax
+    IniWrite, %toolTipFlashIntervalMs%, KorTooltip.ini, internal, toolTipFlashIntervalMs
+    IniWrite, %toolTipOffsetX%, KorTooltip.ini, internal, toolTipOffsetX
+    IniWrite, %toolTipOffsetY%, KorTooltip.ini, internal, toolTipOffsetY
+}
+
 ToolTipColorBlackOnWhite(){
+    global colorScheme
+    colorScheme := "blackOnWhite"
+    
 	StopToolTipFlash()
 	ToolTipColor("White","Black") ; background / foreground
 }
 
 ToolTipColorWhiteOnBlack(){
-	StopToolTipFlash()
+    global colorScheme
+    colorScheme := "whiteOnBlack"
+
+    StopToolTipFlash()
 	ToolTipColor("Black","White")
 }
 
 ToolTipColorWhiteOnRed(){
-	StopToolTipFlash()
+    global colorScheme
+    colorScheme := "whiteOnRed"
+
+    StopToolTipFlash()
 	ToolTipColor("Red","White")
 }
 
-ToogleEngTooltip(){
-	global isEngTooltipDisplayed
-	isEngTooltipDisplayed := !isEngTooltipDisplayed
-}
-
 StartToolTipFlash(){
+    global colorScheme
+    colorScheme := "flash"
+
+    global toolTipFlashIntervalMs
 	toolTipFlashIdx = 1
-	SetTimer, FlashToolTip, 500
+	SetTimer, FlashToolTip, %toolTipFlashIntervalMs%
 }
 
 StopToolTipFlash(){
@@ -118,7 +171,19 @@ FlashToolTip(){
 	}
 }
 
+ToogleEngTooltip(){
+	global isEngTooltipDisplayed
+	isEngTooltipDisplayed := !isEngTooltipDisplayed
+    SaveSettings()
+
+    ; hide tooltip here in case IME is not KOR and/or not watching
+    if(!isEngTooltipDisplayed){
+        ToolTip
+    }
+}
+
 Exit(){
+    SaveSettings()
 	ExitApp
 }
 
@@ -155,7 +220,7 @@ if(imeState = 0 and isEngTooltipDisplayed){
 	lastY := y
 	lastImeState := imeState
 	
-	ToolTip, ENG, x+20, y-30
+	ToolTip, %engUcaseTooltipLabel%, x+toolTipOffsetX, y+toolTipOffsetY
 	return
 }
 
@@ -176,7 +241,7 @@ lastX := x
 lastY := y
 lastImeState := imeState
 
-ToolTip, KOR, x+20, y-30
+ToolTip, %korTooltipLabel%, x+20, y-30
 return
 
 
